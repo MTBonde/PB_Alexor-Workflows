@@ -1,0 +1,74 @@
+name: Semantic Release
+
+on:
+  workflow_call:
+    inputs:
+      changelog-file:
+        description: 'Path to changelog file'
+        required: false
+        type: string
+        default: 'CHANGELOG.md'
+      version-file:
+        description: 'Path to version file'
+        required: false
+        type: string
+        default: 'version.txt'
+    secrets:
+      github-token:
+        description: 'GitHub token with contents write permission'
+        required: true
+    outputs:
+      version:
+        description: 'Released version (empty if no release)'
+        value: ${{ jobs.semantic_release.outputs.version }}
+
+jobs:
+  semantic_release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.semantic_release.outputs.version }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run semantic release
+        uses: go-semantic-release/action@v1
+        id: semantic_release
+        with:
+          github-token: ${{ secrets.github-token }}
+          changelog-file: ${{ inputs.changelog-file }}
+          allow-initial-development-versions: true
+          prepend: true
+
+      - name: Display release information
+        if: steps.semantic_release.outputs.version != ''
+        run: |
+          echo "Version: ${{ steps.semantic_release.outputs.version }}"
+          echo "Changelog: ${{ steps.semantic_release.outputs.changelog }}"
+          echo "Release created successfully!"
+
+      - name: Commit changelog and version.txt
+        if: steps.semantic_release.outputs.version != ''
+        run: |
+          set -e
+          VERSION="${{ steps.semantic_release.outputs.version }}"
+          VERSION_CLEAN="${VERSION#v}"
+          echo "$VERSION_CLEAN" > ${{ inputs.version-file }}
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${{ inputs.changelog-file }}" "${{ inputs.version-file }}"
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: update changelog and version for ${{ steps.semantic_release.outputs.version }} [skip ci]"
+            git push
+          fi
+
+      - name: No release needed
+        if: steps.semantic_release.outputs.version == ''
+        run: echo "No release necessary, no relevant commits found."
