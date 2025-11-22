@@ -1,7 +1,11 @@
+# CD - Build and Push Docker Image
+
 name: CD - Build and Push Docker Image
 
+# Trigger: workflow_call gør denne workflow callable fra andre repos
 on:
   workflow_call:
+    # Inputs: parametre som calling workflow kan sende
     inputs:
       version:
         description: 'Version tag (e.g., v0.5.14)'
@@ -21,23 +25,29 @@ on:
         required: false
         type: string
         default: '.'
+    # Secrets: credentials som calling workflow skal sende
     secrets:
       registry-token:
         description: 'Token for container registry'
         required: true
+    # Outputs: værdier som calling workflow kan bruge
     outputs:
       image-tag:
         description: 'Full image tag that was pushed'
-        value: ${{ jobs.docker.outputs.image-tag }}
+        value: ${{ jobs.docker.outputs.image-tag }}  # Eksponerer job output til calling workflow
 
+# Jobs
 jobs:
   docker:
     runs-on: ubuntu-latest
+    # Job outputs: gør step outputs tilgængelige for workflow outputs
     outputs:
       image-tag: ${{ steps.build.outputs.image-tag }}
     permissions:
       contents: read
       packages: write
+
+    # Steps
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -55,7 +65,7 @@ jobs:
           set -e
           IMAGE_NAME="${{ inputs.image-name }}"
           VERSION="${{ inputs.version }}"
-          VERSION_CLEAN="${VERSION#v}"
+          VERSION_CLEAN="${VERSION#v}"  # Strip 'v' prefix
           IMAGE_TAG="$IMAGE_NAME:$VERSION_CLEAN"
 
           docker build -t "$IMAGE_TAG" -f ${{ inputs.dockerfile-path }} ${{ inputs.build-context }}

@@ -1,7 +1,12 @@
+# Release Pipeline (Full)
+# Orchestrator: ci.yml -> semantic.yml -> cd.yml
+
 name: Release Pipeline (Full)
 
+# Trigger: workflow_call gør denne workflow callable fra andre repos
 on:
   workflow_call:
+    # Inputs: parametre som calling workflow kan sende
     inputs:
       dotnet-version:
         description: '.NET SDK version'
@@ -27,39 +32,45 @@ on:
         required: false
         type: string
         default: '.'
+    # Secrets: credentials som calling workflow skal sende
     secrets:
       github-token:
         description: 'GitHub token with contents and packages write permissions'
         required: true
+    # Outputs: værdier som calling workflow kan bruge
     outputs:
       version:
         description: 'Released version (empty if no release)'
-        value: ${{ jobs.semantic.outputs.version }}
+        value: ${{ jobs.semantic.outputs.version }}  # Henter output fra semantic job
       image-tag:
         description: 'Full image tag that was pushed'
-        value: ${{ jobs.deploy.outputs.image-tag }}
+        value: ${{ jobs.deploy.outputs.image-tag }}  # Henter output fra deploy job
 
+# Jobs
 jobs:
+  # Job 1: Kald ci.yml workflow
   ci:
-    uses: ./.github/workflows/ci.yml
-    with:
+    uses: ./.github/workflows/ci.yml  # Relativ sti til workflow i samme repo
+    with:  # Send inputs videre
       dotnet-version: ${{ inputs.dotnet-version }}
       working-directory: ${{ inputs.working-directory }}
 
+  # Job 2: Kald semantic.yml workflow
   semantic:
-    needs: ci
-    uses: ./.github/workflows/semantic.yml
-    secrets:
+    needs: ci  # Venter på ci job er færdigt
+    uses: ./.github/workflows/semantic.yml  # Relativ sti til workflow i samme repo
+    secrets:  # Send secrets videre
       github-token: ${{ secrets.github-token }}
 
+  # Job 3: Kald cd.yml workflow
   deploy:
-    needs: semantic
-    if: needs.semantic.outputs.version != ''
-    uses: ./.github/workflows/cd.yml
-    with:
-      version: ${{ needs.semantic.outputs.version }}
+    needs: semantic  # Venter på semantic job er færdigt
+    if: needs.semantic.outputs.version != ''  # Kun hvis der blev lavet en release
+    uses: ./.github/workflows/cd.yml  # Relativ sti til workflow i samme repo
+    with:  # Send inputs videre, inkl. output fra semantic
+      version: ${{ needs.semantic.outputs.version }}  # Bruger output fra semantic job
       image-name: ${{ inputs.image-name }}
       dockerfile-path: ${{ inputs.dockerfile-path }}
       build-context: ${{ inputs.build-context }}
-    secrets:
+    secrets:  # Send secrets videre
       registry-token: ${{ secrets.github-token }}

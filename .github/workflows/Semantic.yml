@@ -1,7 +1,11 @@
+# Semantic Release
+
 name: Semantic Release
 
+# Trigger: workflow_call gør denne workflow callable fra andre repos
 on:
   workflow_call:
+    # Inputs: parametre som calling workflow kan sende
     inputs:
       changelog-file:
         description: 'Path to changelog file'
@@ -13,27 +17,33 @@ on:
         required: false
         type: string
         default: 'version.txt'
+    # Secrets: credentials som calling workflow skal sende
     secrets:
       github-token:
         description: 'GitHub token with contents write permission'
         required: true
+    # Outputs: værdier som calling workflow kan bruge
     outputs:
       version:
         description: 'Released version (empty if no release)'
-        value: ${{ jobs.semantic_release.outputs.version }}
+        value: ${{ jobs.semantic_release.outputs.version }}  # Eksponerer job output til calling workflow
 
+# Jobs
 jobs:
   semantic_release:
     runs-on: ubuntu-latest
+    # Job outputs: gør step outputs tilgængelige for workflow outputs
     outputs:
       version: ${{ steps.semantic_release.outputs.version }}
     permissions:
       contents: write
+
+    # Steps
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Full history needed for commit analysis
 
       - name: Run semantic release
         uses: go-semantic-release/action@v1
@@ -51,12 +61,12 @@ jobs:
           echo "Changelog: ${{ steps.semantic_release.outputs.changelog }}"
           echo "Release created successfully!"
 
-      - name: Commit changelog and version.txt
+      - name: Commit changelog and version
         if: steps.semantic_release.outputs.version != ''
         run: |
           set -e
           VERSION="${{ steps.semantic_release.outputs.version }}"
-          VERSION_CLEAN="${VERSION#v}"
+          VERSION_CLEAN="${VERSION#v}"  # Strip 'v' prefix
           echo "$VERSION_CLEAN" > ${{ inputs.version-file }}
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

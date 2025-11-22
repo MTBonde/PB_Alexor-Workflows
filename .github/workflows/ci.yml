@@ -1,7 +1,11 @@
+# CI - Build and Test
+
 name: CI - Build and Test
 
+# Trigger: workflow_call gør denne workflow callable fra andre repos
 on:
   workflow_call:
+    # Inputs: parametre som calling workflow kan sende
     inputs:
       dotnet-version:
         description: '.NET SDK version'
@@ -14,10 +18,12 @@ on:
         type: string
         default: '.'
 
+# Jobs
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    # Steps
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
